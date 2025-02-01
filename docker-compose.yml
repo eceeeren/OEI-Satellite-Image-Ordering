@@ -1,5 +1,16 @@
 version: "3.8"
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    networks:
+      - app-network
+
   api:
     build:
       context: ./backend
