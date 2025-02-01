@@ -1,14 +1,43 @@
-import express from "express";
+import "dotenv/config";
+import express, { Express } from "express";
+import { createPool } from "./config/database";
 import imageRoutes from "./routes/imageRoutes";
 import orderRoutes from "./routes/orderRoutes";
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+export const pool = createPool();
+const app: Express = express();
+const PORT: number = parseInt(process.env.PORT || "3000", 10);
 
-app.use(express.json());
-app.use("/api", imageRoutes);
-app.use("/api", orderRoutes);
+const testDatabaseConnection = async () => {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query("SELECT NOW()");
+      console.log("Database connection successful");
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Error connecting to the database:", err);
+    process.exit(1);
+  }
+};
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+const initializeApp = async () => {
+  try {
+    await testDatabaseConnection();
+
+    app.use(express.json());
+    app.use("/api", imageRoutes);
+    app.use("/api", orderRoutes);
+
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to initialize application:", err);
+    process.exit(1);
+  }
+};
+
+initializeApp();

@@ -1,31 +1,48 @@
 import { Router, Request, Response } from "express";
-import imagesData from "../data/images.json";
-
-interface Geometry {
-  type: "Polygon";
-  coordinates: number[][][];
-}
-
-interface ImageData {
-  catalogID: string;
-  geometry: Geometry;
-}
+import { pool } from "../index";
 
 const router = Router();
 
-router.get("/images", (_req: Request, res: Response) => {
-  res.json(imagesData as ImageData[]);
+router.get("/images", async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        catalog_id as "catalogId",
+        ST_AsGeoJSON(coverage_area)::json as geometry
+      FROM satellite_images
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching images:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
 
-router.get("/images/:id", (req: Request, res: Response) => {
+router.get("/images/:id", async (req: Request, res: Response) => {
   const id = req.params.id;
-  const image = (imagesData as ImageData[]).find((img) => img.catalogID === id);
 
-  if (!image) {
-    res.status(404).json({ message: "Image not found" });
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        catalog_id as "catalogId",
+        ST_AsGeoJSON(coverage_area)::json as geometry
+      FROM satellite_images
+      WHERE catalog_id = $1
+    `,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: "Image not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching image:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
-
-  res.json(image);
 });
 
 export default router;
