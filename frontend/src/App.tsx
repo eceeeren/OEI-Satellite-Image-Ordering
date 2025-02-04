@@ -16,6 +16,7 @@ import {
   Pagination,
   CircularProgress,
   Divider,
+  Popover,
 } from "@mui/material";
 import axios from "axios";
 
@@ -51,6 +52,11 @@ function App() {
   const [imagesPage, setImagesPage] = useState(1);
   const [imagesTotalPages, setImagesTotalPages] = useState(1);
   const [isLoadingImages, setIsLoadingImages] = useState(true);
+
+  // Popover state
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [selectedImageDetails, setSelectedImageDetails] =
+    useState<Image | null>(null);
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -143,12 +149,27 @@ function App() {
     }
   };
 
+  const handleImageClick = (
+    event: React.MouseEvent<HTMLElement>,
+    image: Image
+  ) => {
+    setSelectedImage(image.catalogId);
+    setSelectedImageDetails(image);
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handlePopoverClose = () => {
+    setAnchorEl(null);
+    setSelectedImageDetails(null);
+  };
+
   const handleImagesPageChange = (
     _event: React.ChangeEvent<unknown>,
     value: number
   ) => {
     setImagesPage(value);
     setSelectedImage("");
+    handlePopoverClose();
   };
 
   const handleOrdersPageChange = (
@@ -189,7 +210,7 @@ function App() {
                       <ListItem key={image.catalogId} disablePadding>
                         <ListItemButton
                           selected={selectedImage === image.catalogId}
-                          onClick={() => setSelectedImage(image.catalogId)}
+                          onClick={(event) => handleImageClick(event, image)}
                         >
                           <Typography>{image.catalogId}</Typography>
                         </ListItemButton>
@@ -290,7 +311,62 @@ function App() {
         </Card>
       </Box>
 
-      {alert ? (
+      {/* Image Details Popover */}
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={handlePopoverClose}
+        anchorOrigin={{
+          vertical: "center",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "center",
+          horizontal: "left",
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              boxShadow: 1,
+            },
+          },
+        }}
+        transitionDuration={{
+          enter: 100,
+          exit: 75,
+        }}
+      >
+        {selectedImageDetails && (
+          <Box sx={{ p: 3, width: 500 }}>
+            <Typography variant="h6" gutterBottom>
+              Image Details
+            </Typography>
+            <Typography variant="body1" gutterBottom>
+              <strong>Catalog ID:</strong> {selectedImageDetails.catalogId}
+            </Typography>
+            <Typography variant="body1" gutterBottom>
+              <strong>Coverage Area:</strong>
+              <Box
+                component="pre"
+                sx={{
+                  mt: 1,
+                  p: 2,
+                  bgcolor: "grey.100",
+                  borderRadius: 1,
+                  overflow: "auto",
+                  maxHeight: 200,
+                  fontSize: "0.875rem",
+                }}
+              >
+                {JSON.stringify(selectedImageDetails.geometry, null, 2)}
+              </Box>
+            </Typography>
+          </Box>
+        )}
+      </Popover>
+
+      {/* Alert Snackbar */}
+      {alert && (
         <Snackbar
           open={true}
           autoHideDuration={6000}
@@ -300,7 +376,7 @@ function App() {
             {alert.message}
           </Alert>
         </Snackbar>
-      ) : null}
+      )}
     </Container>
   );
 }
