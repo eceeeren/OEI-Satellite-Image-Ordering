@@ -4,17 +4,37 @@ import { pool } from "../index";
 
 const router = Router();
 
-router.get("/orders", async (_req: Request, res: Response) => {
+router.get("/orders", async (req: Request, res: Response) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 5;
+  const offset = (page - 1) * limit;
+
   try {
-    const result = await pool.query(`
+    // Total count
+    const countResult = await pool.query("SELECT COUNT(*) FROM orders");
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    // Paginated orders
+    const result = await pool.query(
+      `
       SELECT 
         orders.id as "orderId",
         orders.image_id as "imageId",
         orders.price,
         orders.created_at as "createdAt"
       FROM orders
-    `);
-    res.json(result.rows);
+      ORDER BY orders.created_at DESC
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset]
+    );
+
+    res.json({
+      orders: result.rows,
+      total: totalCount,
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+    });
   } catch (error) {
     console.error("Error fetching orders:", error);
     res.status(500).json({ message: "Internal server error" });

@@ -15,6 +15,7 @@ import {
   Snackbar,
   Pagination,
   CircularProgress,
+  Divider,
 } from "@mui/material";
 import axios from "axios";
 
@@ -37,9 +38,26 @@ interface Order {
   createdAt: string;
 }
 
+interface OrderResponse {
+  orders: Order[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}
+
 function App() {
+  // Images state
   const [images, setImages] = useState<Image[]>([]);
+  const [imagesPage, setImagesPage] = useState(1);
+  const [imagesTotalPages, setImagesTotalPages] = useState(1);
+  const [isLoadingImages, setIsLoadingImages] = useState(true);
+
+  // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersTotalPages, setOrdersTotalPages] = useState(1);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+
   const [selectedImage, setSelectedImage] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [alert, setAlert] = useState<{
@@ -47,21 +65,19 @@ function App() {
     type: "success" | "error";
   } | null>(null);
 
-  // Loading state
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Pagination states
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const imagesPerPage = 5;
+  const ordersPerPage = 3;
 
   useEffect(() => {
-    fetchImages(page);
-    fetchOrders();
-  }, [page]);
+    fetchImages(imagesPage);
+  }, [imagesPage]);
+
+  useEffect(() => {
+    fetchOrders(ordersPage);
+  }, [ordersPage]);
 
   const fetchImages = async (currentPage: number) => {
-    setIsLoading(true);
+    setIsLoadingImages(true);
     try {
       const response = await axios.get<ImageResponse>("/api/images", {
         params: {
@@ -70,20 +86,33 @@ function App() {
         },
       });
       setImages(response.data.images);
-      setTotalPages(response.data.totalPages);
+      setImagesTotalPages(response.data.totalPages);
     } catch (error) {
+      console.error("Error fetching images:", error);
       setAlert({ message: "Failed to fetch images", type: "error" });
+      setImages([]);
     } finally {
-      setIsLoading(false);
+      setIsLoadingImages(false);
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (currentPage: number) => {
+    setIsLoadingOrders(true);
     try {
-      const response = await axios.get("/api/orders");
-      setOrders(response.data);
+      const response = await axios.get<OrderResponse>("/api/orders", {
+        params: {
+          page: currentPage,
+          limit: ordersPerPage,
+        },
+      });
+      setOrders(response.data.orders);
+      setOrdersTotalPages(response.data.totalPages);
     } catch (error) {
+      console.error("Error fetching orders:", error);
       setAlert({ message: "Failed to fetch orders", type: "error" });
+      setOrders([]);
+    } finally {
+      setIsLoadingOrders(false);
     }
   };
 
@@ -97,33 +126,36 @@ function App() {
     }
 
     try {
-      const response = await axios.post("/api/orders", {
+      await axios.post<Order>("/api/orders", {
         imageId: selectedImage,
         price,
       });
-      setOrders([...orders, response.data]);
+
+      setOrdersPage(1);
+      await fetchOrders(1);
+
       setAlert({ message: "Order created successfully", type: "success" });
       setSelectedImage("");
       setPrice("");
     } catch (error) {
+      console.error("Error creating order:", error);
       setAlert({ message: "Failed to create order", type: "error" });
     }
   };
 
-  const handlePageChange = (
+  const handleImagesPageChange = (
     _event: React.ChangeEvent<unknown>,
     value: number
   ) => {
-    setPage(value);
+    setImagesPage(value);
     setSelectedImage("");
   };
 
-  const getListItems = () => {
-    const items = [...images];
-    while (items.length < imagesPerPage) {
-      items.push({ catalogId: `placeholder-${items.length}`, geometry: null });
-    }
-    return items;
+  const handleOrdersPageChange = (
+    _event: React.ChangeEvent<unknown>,
+    value: number
+  ) => {
+    setOrdersPage(value);
   };
 
   return (
@@ -146,69 +178,40 @@ function App() {
               <Typography variant="subtitle1" gutterBottom>
                 Available Images:
               </Typography>
-              <Paper
-                sx={{
-                  height: 200,
-                  mb: 2,
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {isLoading ? (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      flex: 1,
-                    }}
-                  >
+              <Paper sx={{ maxHeight: 200, overflow: "auto", mb: 2 }}>
+                {isLoadingImages ? (
+                  <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
                     <CircularProgress size={24} />
                   </Box>
-                ) : (
-                  <List
-                    sx={{
-                      flex: 1,
-                      overflow: "auto",
-                      "& .MuiListItem-root": {
-                        opacity: (theme) =>
-                          theme.palette.mode === "light" ? 1 : 0.7,
-                      },
-                      "& .placeholder": {
-                        visibility: "hidden",
-                      },
-                    }}
-                  >
-                    {getListItems().map((image) => (
-                      <ListItem
-                        key={image.catalogId}
-                        disablePadding
-                        className={
-                          image.catalogId.startsWith("placeholder-")
-                            ? "placeholder"
-                            : ""
-                        }
-                      >
+                ) : images.length > 0 ? (
+                  <List>
+                    {images.map((image) => (
+                      <ListItem key={image.catalogId} disablePadding>
                         <ListItemButton
                           selected={selectedImage === image.catalogId}
                           onClick={() => setSelectedImage(image.catalogId)}
-                          disabled={image.catalogId.startsWith("placeholder-")}
                         >
                           <Typography>{image.catalogId}</Typography>
                         </ListItemButton>
                       </ListItem>
                     ))}
                   </List>
+                ) : (
+                  <Box sx={{ p: 2, textAlign: "center" }}>
+                    <Typography color="text.secondary">
+                      No images available
+                    </Typography>
+                  </Box>
                 )}
               </Paper>
               <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
                 <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={handlePageChange}
+                  count={imagesTotalPages}
+                  page={imagesPage}
+                  onChange={handleImagesPageChange}
                   color="primary"
                   size="small"
-                  disabled={isLoading}
+                  disabled={isLoadingImages}
                 />
               </Box>
             </Box>
@@ -226,7 +229,7 @@ function App() {
               variant="contained"
               fullWidth
               onClick={handleCreateOrder}
-              disabled={!selectedImage || !price || isLoading}
+              disabled={!selectedImage || !price || isLoadingImages}
             >
               Create Order
             </Button>
@@ -239,25 +242,50 @@ function App() {
             <Typography variant="h6" gutterBottom>
               Recent Orders
             </Typography>
-            <Paper sx={{ height: 400, overflow: "auto" }}>
-              <List>
-                {orders.map((order) => (
-                  <ListItem
-                    key={order.orderId}
-                    sx={{ flexDirection: "column", alignItems: "flex-start" }}
-                  >
-                    <Typography variant="subtitle1">
-                      Order ID: {order.orderId}
-                    </Typography>
-                    <Typography>Image ID: {order.imageId}</Typography>
-                    <Typography>Price: ${order.price}</Typography>
-                    <Typography>
-                      Created: {new Date(order.createdAt).toLocaleString()}
-                    </Typography>
-                  </ListItem>
-                ))}
-              </List>
+            <Paper sx={{ maxHeight: 400, overflow: "auto" }}>
+              {isLoadingOrders ? (
+                <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : orders.length > 0 ? (
+                <List>
+                  {orders.map((order, index) => (
+                    <ListItem
+                      key={order.orderId}
+                      sx={{ flexDirection: "column", alignItems: "flex-start" }}
+                    >
+                      <Typography variant="subtitle1">
+                        Order ID: {order.orderId}
+                      </Typography>
+                      <Typography>Image ID: {order.imageId}</Typography>
+                      <Typography>Price: ${order.price}</Typography>
+                      <Typography>
+                        Created: {new Date(order.createdAt).toLocaleString()}
+                      </Typography>
+                      {index < orders.length - 1 && (
+                        <Divider sx={{ width: "100%", my: 1 }} />
+                      )}
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Box sx={{ p: 2, textAlign: "center" }}>
+                  <Typography color="text.secondary">
+                    No orders available
+                  </Typography>
+                </Box>
+              )}
             </Paper>
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+              <Pagination
+                count={ordersTotalPages}
+                page={ordersPage}
+                onChange={handleOrdersPageChange}
+                color="primary"
+                size="small"
+                disabled={isLoadingOrders}
+              />
+            </Box>
           </CardContent>
         </Card>
       </Box>
