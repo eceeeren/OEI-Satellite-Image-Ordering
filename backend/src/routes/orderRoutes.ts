@@ -2,6 +2,17 @@ import { Router, Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { pool } from "../index";
 
+/**
+ * Order Router Module
+ *
+ * For a complete implementation guide, see:
+ * 'How to Build a REST API with Node.js and TypeScript'
+ * https://medium.com/@holasoymalva/how-to-build-a-rest-api-with-node-js-and-typescript-3491ddd19f95
+ *
+ * Development notes:
+ * - Database queries developed with assistance from Claude (Anthropic)
+ */
+
 const router = Router();
 
 router.get("/orders", async (req: Request, res: Response) => {

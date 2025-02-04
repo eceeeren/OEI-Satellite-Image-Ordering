@@ -4,6 +4,17 @@ import { createPool } from "./config/database";
 import imageRoutes from "./routes/imageRoutes";
 import orderRoutes from "./routes/orderRoutes";
 
+/**
+ * Main Application Module
+ *
+ * For a complete implementation guide, see:
+ * 'How to Build a REST API with Node.js and TypeScript'
+ * https://medium.com/@holasoymalva/how-to-build-a-rest-api-with-node-js-and-typescript-3491ddd19f95
+ *
+ * Development notes:
+ * - Code structure and formatting assisted by Claude (Anthropic)
+ */
+
 export const pool = createPool();
 const app: Express = express();
 const PORT: number = parseInt(process.env.PORT || "3000", 10);

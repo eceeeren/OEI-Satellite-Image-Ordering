@@ -1,3 +1,20 @@
+/**
+ * ==========================================
+ * Image Processing Frontend
+ * ==========================================
+ *
+ * A React-based frontend for the image processing service.
+ *
+ * Technical Stack:
+ * - React 18 with TypeScript
+ * - Vite for build tooling
+ * - Material-UI (MUI) for component library
+ * - Axios for HTTP requests
+ *
+ * Development tools:
+ * - Code structure: Created by Claude (Anthropic) & edited by the auhthor.
+ */
+
 import { useState, useEffect } from "react";
 import {
   Container,
