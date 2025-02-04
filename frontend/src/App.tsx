@@ -9,6 +9,7 @@ import {
   Button,
   List,
   ListItem,
+  ListItemButton,
   Paper,
   Alert,
   Snackbar,
@@ -106,13 +107,13 @@ function App() {
               <Paper sx={{ maxHeight: 200, overflow: "auto", mb: 2 }}>
                 <List>
                   {images.map((image) => (
-                    <ListItem
-                      key={image.catalogId}
-                      button
-                      selected={selectedImage === image.catalogId}
-                      onClick={() => setSelectedImage(image.catalogId)}
-                    >
-                      <Typography>{image.catalogId}</Typography>
+                    <ListItem key={image.catalogId} disablePadding>
+                      <ListItemButton
+                        selected={selectedImage === image.catalogId}
+                        onClick={() => setSelectedImage(image.catalogId)}
+                      >
+                        <Typography>{image.catalogId}</Typography>
+                      </ListItemButton>
                     </ListItem>
                   ))}
                 </List>
@@ -168,17 +169,17 @@ function App() {
         </Card>
       </Box>
 
-      <Snackbar
-        open={!!alert}
-        autoHideDuration={6000}
-        onClose={() => setAlert(null)}
-      >
-        {alert && (
+      {alert ? (
+        <Snackbar
+          open={true}
+          autoHideDuration={6000}
+          onClose={() => setAlert(null)}
+        >
           <Alert severity={alert.type} onClose={() => setAlert(null)}>
             {alert.message}
           </Alert>
-        )}
-      </Snackbar>
+        </Snackbar>
+      ) : null}
     </Container>
   );
 }
