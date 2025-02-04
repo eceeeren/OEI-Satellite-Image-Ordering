@@ -3,16 +3,37 @@ import { pool } from "../index";
 
 const router = Router();
 
-router.get("/images", async (_req: Request, res: Response) => {
+router.get("/images", async (req: Request, res: Response) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 5;
+  const offset = (page - 1) * limit;
+
   try {
-    const result = await pool.query(`
+    // Total count
+    const countResult = await pool.query(
+      "SELECT COUNT(*) FROM satellite_images"
+    );
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    // Paginated results
+    const result = await pool.query(
+      `
       SELECT 
         catalog_id as "catalogId",
         ST_AsGeoJSON(coverage_area)::json as geometry
       FROM satellite_images
-    `);
+      ORDER BY catalog_id
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset]
+    );
 
-    res.json(result.rows);
+    res.json({
+      images: result.rows,
+      total: totalCount,
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+    });
   } catch (error) {
     console.error("Error fetching images:", error);
     res.status(500).json({ message: "Internal server error" });

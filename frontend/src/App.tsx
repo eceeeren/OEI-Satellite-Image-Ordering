@@ -13,12 +13,21 @@ import {
   Paper,
   Alert,
   Snackbar,
+  Pagination,
+  CircularProgress,
 } from "@mui/material";
 import axios from "axios";
 
 interface Image {
   catalogId: string;
   geometry: any;
+}
+
+interface ImageResponse {
+  images: Image[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
 }
 
 interface Order {
@@ -38,17 +47,34 @@ function App() {
     type: "success" | "error";
   } | null>(null);
 
-  useEffect(() => {
-    fetchImages();
-    fetchOrders();
-  }, []);
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
 
-  const fetchImages = async () => {
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const imagesPerPage = 5;
+
+  useEffect(() => {
+    fetchImages(page);
+    fetchOrders();
+  }, [page]);
+
+  const fetchImages = async (currentPage: number) => {
+    setIsLoading(true);
     try {
-      const response = await axios.get("/api/images");
-      setImages(response.data);
+      const response = await axios.get<ImageResponse>("/api/images", {
+        params: {
+          page: currentPage,
+          limit: imagesPerPage,
+        },
+      });
+      setImages(response.data.images);
+      setTotalPages(response.data.totalPages);
     } catch (error) {
       setAlert({ message: "Failed to fetch images", type: "error" });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -84,6 +110,22 @@ function App() {
     }
   };
 
+  const handlePageChange = (
+    _event: React.ChangeEvent<unknown>,
+    value: number
+  ) => {
+    setPage(value);
+    setSelectedImage("");
+  };
+
+  const getListItems = () => {
+    const items = [...images];
+    while (items.length < imagesPerPage) {
+      items.push({ catalogId: `placeholder-${items.length}`, geometry: null });
+    }
+    return items;
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom>
@@ -104,20 +146,71 @@ function App() {
               <Typography variant="subtitle1" gutterBottom>
                 Available Images:
               </Typography>
-              <Paper sx={{ maxHeight: 200, overflow: "auto", mb: 2 }}>
-                <List>
-                  {images.map((image) => (
-                    <ListItem key={image.catalogId} disablePadding>
-                      <ListItemButton
-                        selected={selectedImage === image.catalogId}
-                        onClick={() => setSelectedImage(image.catalogId)}
+              <Paper
+                sx={{
+                  height: 200,
+                  mb: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {isLoading ? (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      flex: 1,
+                    }}
+                  >
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <List
+                    sx={{
+                      flex: 1,
+                      overflow: "auto",
+                      "& .MuiListItem-root": {
+                        opacity: (theme) =>
+                          theme.palette.mode === "light" ? 1 : 0.7,
+                      },
+                      "& .placeholder": {
+                        visibility: "hidden",
+                      },
+                    }}
+                  >
+                    {getListItems().map((image) => (
+                      <ListItem
+                        key={image.catalogId}
+                        disablePadding
+                        className={
+                          image.catalogId.startsWith("placeholder-")
+                            ? "placeholder"
+                            : ""
+                        }
                       >
-                        <Typography>{image.catalogId}</Typography>
-                      </ListItemButton>
-                    </ListItem>
-                  ))}
-                </List>
+                        <ListItemButton
+                          selected={selectedImage === image.catalogId}
+                          onClick={() => setSelectedImage(image.catalogId)}
+                          disabled={image.catalogId.startsWith("placeholder-")}
+                        >
+                          <Typography>{image.catalogId}</Typography>
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
               </Paper>
+              <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                <Pagination
+                  count={totalPages}
+                  page={page}
+                  onChange={handlePageChange}
+                  color="primary"
+                  size="small"
+                  disabled={isLoading}
+                />
+              </Box>
             </Box>
 
             <TextField
@@ -133,7 +226,7 @@ function App() {
               variant="contained"
               fullWidth
               onClick={handleCreateOrder}
-              disabled={!selectedImage || !price}
+              disabled={!selectedImage || !price || isLoading}
             >
               Create Order
             </Button>
@@ -146,7 +239,7 @@ function App() {
             <Typography variant="h6" gutterBottom>
               Recent Orders
             </Typography>
-            <Paper sx={{ maxHeight: 400, overflow: "auto" }}>
+            <Paper sx={{ height: 400, overflow: "auto" }}>
               <List>
                 {orders.map((order) => (
                   <ListItem
