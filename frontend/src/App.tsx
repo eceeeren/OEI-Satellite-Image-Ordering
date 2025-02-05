@@ -43,10 +43,12 @@ interface Image {
 }
 
 interface ImageResponse {
-  images: Image[];
-  total: number;
-  currentPage: number;
-  totalPages: number;
+  data: {
+    images: Image[];
+    total: number;
+    currentPage: number;
+    totalPages: number;
+  };
 }
 
 interface Order {
@@ -57,10 +59,12 @@ interface Order {
 }
 
 interface OrderResponse {
-  orders: Order[];
-  total: number;
-  currentPage: number;
-  totalPages: number;
+  data: {
+    orders: Order[];
+    total: number;
+    currentPage: number;
+    totalPages: number;
+  };
 }
 
 function App() {
@@ -108,23 +112,18 @@ function App() {
           limit: imagesPerPage,
           t: Date.now(),
         },
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
       });
-      console.log("Images Response:", response.data);
 
-      if (response?.data?.images) {
-        setImages(response.data.images);
-        setImagesTotalPages(Math.max(1, response.data.totalPages || 1));
+      const responseData = response.data.data || response.data;
+      if (responseData?.images) {
+        setImages(responseData.images);
+        setImagesTotalPages(Math.max(1, responseData.totalPages || 1));
       } else {
         setImages([]);
         setImagesTotalPages(1);
       }
     } catch (error) {
-      console.error("Error fetching images:", error);
-      setAlert({ message: "Failed to fetch images", type: "error" });
+      console.error("Error:", error);
       setImages([]);
     } finally {
       setIsLoadingImages(false);
@@ -140,15 +139,13 @@ function App() {
           limit: ordersPerPage,
           t: Date.now(),
         },
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
       });
 
-      if (response?.data?.orders) {
-        setOrders(response.data.orders);
-        setOrdersTotalPages(Math.max(1, response.data.totalPages || 1));
+      // Handle both nested and direct response structures
+      const responseData = response.data.data || response.data;
+      if (responseData?.orders) {
+        setOrders(responseData.orders);
+        setOrdersTotalPages(Math.max(1, responseData.totalPages || 1));
       } else {
         setOrders([]);
         setOrdersTotalPages(1);
