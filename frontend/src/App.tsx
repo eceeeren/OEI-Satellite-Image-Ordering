@@ -106,10 +106,22 @@ function App() {
         params: {
           page: currentPage,
           limit: imagesPerPage,
+          t: Date.now(),
+        },
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
       });
-      setImages(response.data.images);
-      setImagesTotalPages(response.data.totalPages);
+      console.log("Images Response:", response.data);
+
+      if (response?.data?.images) {
+        setImages(response.data.images);
+        setImagesTotalPages(Math.max(1, response.data.totalPages || 1));
+      } else {
+        setImages([]);
+        setImagesTotalPages(1);
+      }
     } catch (error) {
       console.error("Error fetching images:", error);
       setAlert({ message: "Failed to fetch images", type: "error" });
@@ -126,14 +138,26 @@ function App() {
         params: {
           page: currentPage,
           limit: ordersPerPage,
+          t: Date.now(),
+        },
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
       });
-      setOrders(response.data.orders);
-      setOrdersTotalPages(response.data.totalPages);
+
+      if (response?.data?.orders) {
+        setOrders(response.data.orders);
+        setOrdersTotalPages(Math.max(1, response.data.totalPages || 1));
+      } else {
+        setOrders([]);
+        setOrdersTotalPages(1);
+      }
     } catch (error) {
       console.error("Error fetching orders:", error);
       setAlert({ message: "Failed to fetch orders", type: "error" });
       setOrders([]);
+      setOrdersTotalPages(1);
     } finally {
       setIsLoadingOrders(false);
     }
