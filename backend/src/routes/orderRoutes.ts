@@ -93,7 +93,9 @@ router.post("/orders", async (req: Request, res: Response) => {
     res.status(400).json({ error: "ImageId and price are required" });
   }
 
-  if (typeof price !== "number" || price <= 0) {
+  // Convert price to number and validate
+  const numericPrice = Number(price);
+  if (isNaN(numericPrice) || numericPrice <= 0) {
     res.status(400).json({ error: "Price must be a positive number" });
   }
 
@@ -114,7 +116,7 @@ router.post("/orders", async (req: Request, res: Response) => {
       `INSERT INTO orders (id, image_id, price, created_at)
        VALUES ($1, $2, $3, NOW())
        RETURNING id as "orderId", image_id as "imageId", price, created_at as "createdAt"`,
-      [orderId, imageId, price]
+      [orderId, imageId, numericPrice]
     );
 
     res.status(201).json(result.rows[0]);
