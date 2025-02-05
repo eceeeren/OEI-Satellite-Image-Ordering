@@ -1,4 +1,5 @@
 import "dotenv/config";
+import cors from "cors";
 import express, { Express } from "express";
 import { createPool } from "./config/database";
 import imageRoutes from "./routes/imageRoutes";
@@ -37,6 +38,13 @@ const testDatabaseConnection = async () => {
 const initializeApp = async () => {
   try {
     await testDatabaseConnection();
+
+    app.use(
+      cors({
+        origin: "https://oei-satellite-image-ordering-jmja.onrender.com",
+        credentials: true,
+      })
+    );
 
     app.use(express.json());
     app.use("/api", imageRoutes);
