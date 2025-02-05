@@ -44,12 +44,10 @@ interface Image {
 }
 
 interface ImageResponse {
-  data: {
-    images: Image[];
-    total: number;
-    currentPage: number;
-    totalPages: number;
-  };
+  images: Image[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
 }
 
 interface Order {
@@ -60,12 +58,10 @@ interface Order {
 }
 
 interface OrderResponse {
-  data: {
-    orders: Order[];
-    total: number;
-    currentPage: number;
-    totalPages: number;
-  };
+  orders: Order[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
 }
 
 function App() {
@@ -117,7 +113,7 @@ function App() {
         },
       });
 
-      const responseData = response.data.data || response.data;
+      const responseData = response.data;
       if (responseData?.images) {
         setImages(responseData.images);
         setImagesTotalPages(Math.max(1, responseData.totalPages || 1));
@@ -143,8 +139,8 @@ function App() {
           t: Date.now(),
         },
       });
-      // Handle both nested and direct response structures
-      const responseData = response.data.data || response.data;
+
+      const responseData = response.data;
       if (responseData?.orders) {
         setOrders(responseData.orders);
         setOrdersTotalPages(Math.max(1, responseData.totalPages || 1));
