@@ -54,6 +54,16 @@ router.get("/orders", async (req: Request, res: Response) => {
 
 router.post("/orders", async (req: Request, res: Response) => {
   const { imageId, price } = req.body;
+
+  // Input validation
+  if (!imageId || !price) {
+    res.status(400).json({ error: "ImageId and price are required" });
+  }
+
+  if (typeof price !== "number" || price <= 0) {
+    res.status(400).json({ error: "Price must be a positive number" });
+  }
+
   const orderId = randomUUID();
 
   try {

@@ -19,6 +19,11 @@ router.get("/images", async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 5;
   const offset = (page - 1) * limit;
 
+  // Input validation
+  if (page < 1 || limit < 1) {
+    res.status(400).json({ error: "Page and limit must be positive numbers" });
+  }
+
   try {
     // Total count
     const countResult = await pool.query(
