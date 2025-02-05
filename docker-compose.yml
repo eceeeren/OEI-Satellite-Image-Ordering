@@ -9,7 +9,6 @@
 # Tutorial: https://www.keralait.dev/blogs/76/step-by-step-guide-on-how-to-set-up-a-simple-rest-api-using-
 # ===================================
 
-version: "3.8"
 services:
   frontend:
     container_name: oei-frontend
@@ -58,7 +57,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
     healthcheck:

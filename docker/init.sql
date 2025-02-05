@@ -4,7 +4,8 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- Satellite Images Table
 CREATE TABLE satellite_images (
     catalog_id VARCHAR(255) PRIMARY KEY,
-    coverage_area GEOMETRY(Polygon, 4326)
+    coverage_area GEOMETRY(Polygon, 4326),
+    created_at TIMESTAMP NOT NULL
 );
 
 -- Orders Table
@@ -16,7 +17,7 @@ CREATE TABLE orders (
 );
 
 -- Insert satellite images data
-INSERT INTO satellite_images (catalog_id, coverage_area) VALUES
+INSERT INTO satellite_images (catalog_id, coverage_area, created_at) VALUES
 (
     '103401008B2340',
     ST_SetSRID(ST_GeomFromGeoJSON('{
@@ -29,7 +30,8 @@ INSERT INTO satellite_images (catalog_id, coverage_area) VALUES
             [11.566756986040389, 48.156020777339506],
             [11.55925345655993, 48.15521738088981]
         ]]
-    }'), 4326)
+    }'), 4326),
+    '2025-01-30T11:30:00Z'
 ),
 (
     '103401009C2341',
@@ -42,7 +44,8 @@ INSERT INTO satellite_images (catalog_id, coverage_area) VALUES
             [11.584462248183428, 48.15319448649555],
             [11.577356938354256, 48.15319448649555]
         ]]
-    }'), 4326)
+    }'), 4326),
+    '2025-01-30T11:30:00Z'
 ),
 (
     '103401009C2342',
@@ -115,7 +118,8 @@ INSERT INTO satellite_images (catalog_id, coverage_area) VALUES
             [11.556818389249344, 48.14895384618707],
             [11.556266508776162, 48.148971936635355]
         ]]
-    }'), 4326)
+    }'), 4326),
+    '2025-01-30T11:30:00Z'
 ),
 (
     '103401009C2343',
@@ -129,7 +133,8 @@ INSERT INTO satellite_images (catalog_id, coverage_area) VALUES
             [11.596318929578928, 48.14826070417044],
             [11.59229797044867, 48.146203672489264]
         ]]
-    }'), 4326)
+    }'), 4326),
+    '2025-02-01T11:30:00Z'
 ),
 (
     '103401009C2344',
@@ -142,7 +147,8 @@ INSERT INTO satellite_images (catalog_id, coverage_area) VALUES
             [11.586155510541715, 48.13589662009511],
             [11.577987778630842, 48.13589662009511]
         ]]
-    }'), 4326)
+    }'), 4326),
+    '2025-02-01T11:30:00Z'
 ),
 (
     '103401009C2345',
@@ -215,7 +221,8 @@ INSERT INTO satellite_images (catalog_id, coverage_area) VALUES
             [11.550115881898725, 48.13318543424033],
             [11.54945520213954, 48.133207098055756]
         ]]
-    }'), 4326)
+    }'), 4326),
+    '2025-02-01T11:30:00Z'
 );
 
 -- Insert orders data

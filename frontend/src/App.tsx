@@ -40,6 +40,7 @@ import axios from "axios";
 interface Image {
   catalogId: string;
   geometry: any;
+  createdAt: string;
 }
 
 interface ImageResponse {
@@ -381,6 +382,10 @@ function App() {
             </Typography>
             <Typography variant="body1" gutterBottom>
               <strong>Catalog ID:</strong> {selectedImageDetails.catalogId}
+            </Typography>
+            <Typography variant="body1" gutterBottom>
+              <strong>Created At:</strong>{" "}
+              {new Date(selectedImageDetails.createdAt).toLocaleString()}
             </Typography>
             <Typography variant="body1" gutterBottom>
               <strong>Coverage Area:</strong>

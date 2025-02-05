@@ -14,6 +14,7 @@ export interface Geometry {
 export interface ImageData {
   catalogId: string;
   geometry: Geometry;
+  createdAt: string;
 }
 
 export interface OrderData {

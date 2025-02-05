@@ -17,6 +17,7 @@ const router = Router();
 router.get("/images", async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 5;
+  const { startDate, endDate } = req.query;
   const offset = (page - 1) * limit;
 
   // Input validation
@@ -24,26 +25,40 @@ router.get("/images", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Page and limit must be positive numbers" });
   }
 
+  let query = `
+    SELECT 
+      catalog_id as "catalogId",
+      ST_AsGeoJSON(coverage_area)::json as geometry,
+      created_at as "createdAt"
+    FROM satellite_images 
+    WHERE 1=1`;
+  const params = [];
+  let paramNum = 1;
+
+  // Filter the dates (Format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
+  if (startDate) {
+    query += ` AND created_at >= $${paramNum++}::timestamptz`;
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ` AND created_at <= $${paramNum++}::timestamptz`;
+    params.push(endDate);
+  }
+
+  const countResult = await pool.query(
+    `SELECT COUNT(*) FROM satellite_images WHERE 1=1${
+      query.split("WHERE 1=1")[1].split("ORDER BY")[0]
+    }`,
+    params
+  );
+
+  const totalCount = parseInt(countResult.rows[0].count);
+
+  query += ` ORDER BY catalog_id LIMIT $${paramNum} OFFSET $${paramNum + 1}`;
+  params.push(limit, offset);
+
   try {
-    // Total count
-    const countResult = await pool.query(
-      "SELECT COUNT(*) FROM satellite_images"
-    );
-    const totalCount = parseInt(countResult.rows[0].count);
-
-    // Paginated results
-    const result = await pool.query(
-      `
-      SELECT 
-        catalog_id as "catalogId",
-        ST_AsGeoJSON(coverage_area)::json as geometry
-      FROM satellite_images
-      ORDER BY catalog_id
-      LIMIT $1 OFFSET $2
-      `,
-      [limit, offset]
-    );
-
+    const result = await pool.query(query, params);
     res.json({
       images: result.rows,
       total: totalCount,
