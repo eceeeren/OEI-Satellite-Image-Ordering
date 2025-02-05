@@ -143,7 +143,6 @@ function App() {
           t: Date.now(),
         },
       });
-
       // Handle both nested and direct response structures
       const responseData = response.data.data || response.data;
       if (responseData?.orders) {
@@ -173,20 +172,27 @@ function App() {
     }
 
     try {
-      await axios.post<Order>("/api/orders", {
+      const response = await axios.post<Order>(`${API_URL}/api/orders`, {
         imageId: selectedImage,
-        price,
+        price: Number(price),
       });
 
-      setOrdersPage(1);
-      await fetchOrders(1);
-
-      setAlert({ message: "Order created successfully", type: "success" });
-      setSelectedImage("");
-      setPrice("");
-    } catch (error) {
+      if (response.status === 201) {
+        setOrdersPage(1);
+        await fetchOrders(1);
+        setAlert({ message: "Order created successfully", type: "success" });
+        setSelectedImage("");
+        setPrice("");
+      } else {
+        setAlert({ message: "Unexpected response from server", type: "error" });
+      }
+    } catch (error: any) {
       console.error("Error creating order:", error);
-      setAlert({ message: "Failed to create order", type: "error" });
+      const errorMessage =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to create order";
+      setAlert({ message: errorMessage, type: "error" });
     }
   };
 
@@ -240,7 +246,7 @@ function App() {
               <Typography variant="subtitle1" gutterBottom>
                 Available Images:
               </Typography>
-              <Paper sx={{ maxHeight: 200, overflow: "auto", mb: 2 }}>
+              <Paper sx={{ height: 200, overflow: "auto", mb: 2 }}>
                 {isLoadingImages ? (
                   <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
                     <CircularProgress size={24} />
