@@ -17,12 +17,13 @@ const router = Router();
 router.get("/images", async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 5;
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, area } = req.query;
   const offset = (page - 1) * limit;
 
   // Input validation
   if (page < 1 || limit < 1) {
     res.status(400).json({ error: "Page and limit must be positive numbers" });
+    return;
   }
 
   let query = `
@@ -43,6 +44,18 @@ router.get("/images", async (req: Request, res: Response) => {
   if (endDate) {
     query += ` AND created_at <= $${paramNum++}::timestamptz`;
     params.push(endDate);
+  }
+
+  // Filter images within the boundaries of a specific area of interest
+  if (area) {
+    try {
+      const geojson = JSON.parse(area as string);
+      query += ` AND ST_Intersects(coverage_area, ST_SetSRID(ST_GeomFromGeoJSON($${paramNum++}), 4326))`;
+      params.push(JSON.stringify(geojson));
+    } catch (error) {
+      res.status(400).json({ error: "Invalid GeoJSON format" });
+      return;
+    }
   }
 
   const countResult = await pool.query(
