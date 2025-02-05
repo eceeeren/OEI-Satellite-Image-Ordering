@@ -69,6 +69,8 @@ interface OrderResponse {
 }
 
 function App() {
+  const API_URL = import.meta.env.VITE_API_URL || "";
+
   // Images state
   const [images, setImages] = useState<Image[]>([]);
   const [imagesPage, setImagesPage] = useState(1);
@@ -107,7 +109,7 @@ function App() {
   const fetchImages = async (currentPage: number) => {
     setIsLoadingImages(true);
     try {
-      const response = await axios.get<ImageResponse>("/api/images", {
+      const response = await axios.get<ImageResponse>(`${API_URL}/api/images`, {
         params: {
           page: currentPage,
           limit: imagesPerPage,
@@ -134,7 +136,7 @@ function App() {
   const fetchOrders = async (currentPage: number) => {
     setIsLoadingOrders(true);
     try {
-      const response = await axios.get<OrderResponse>("/api/orders", {
+      const response = await axios.get<OrderResponse>(`${API_URL}/api/orders`, {
         params: {
           page: currentPage,
           limit: ordersPerPage,
