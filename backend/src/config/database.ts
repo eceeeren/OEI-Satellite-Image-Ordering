@@ -10,15 +10,25 @@ import { DatabaseConfig } from "../types/custom";
  */
 
 const getDatabaseConfig = (): DatabaseConfig => {
-  const config: DatabaseConfig = {
-    user: process.env.POSTGRES_USER!,
-    password: process.env.POSTGRES_PASSWORD!,
-    host: process.env.DB_HOST!,
-    database: process.env.POSTGRES_DB!,
-    port: parseInt(process.env.POSTGRES_PORT || "5432"),
-  };
+  const {
+    POSTGRES_USER,
+    POSTGRES_PASSWORD,
+    DB_HOST,
+    POSTGRES_DB,
+    POSTGRES_PORT,
+  } = process.env;
 
-  return config;
+  if (!POSTGRES_USER || !POSTGRES_PASSWORD || !DB_HOST || !POSTGRES_DB) {
+    throw new Error("Missing required database environment variables");
+  }
+
+  return {
+    user: POSTGRES_USER,
+    password: POSTGRES_PASSWORD,
+    host: DB_HOST,
+    database: POSTGRES_DB,
+    port: Number(POSTGRES_PORT) || 5432,
+  };
 };
 
 export const createPool = (): Pool => {
