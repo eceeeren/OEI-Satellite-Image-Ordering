@@ -1,22 +1,20 @@
-import { Router, Request, Response } from "express";
+// src/routes/images.ts
+import { Router } from "express";
 import { ImageController } from "../controllers/imageController";
-
-/**
- * Image Router Module
- *
- * For a complete implementation guide, see:
- * 'How to Build a REST API with Node.js and TypeScript'
- * https://medium.com/@holasoymalva/how-to-build-a-rest-api-with-node-js-and-typescript-3491ddd19f95
- */
+import { validateDto } from "../middleware/validation";
+import { GetImagesQueryDto, GetImageParamsDto } from "../dtos/image";
 
 const router = Router();
 const imageController = new ImageController();
 
-router.get("/images", (req: Request, res: Response) =>
+router.get("/images", validateDto(GetImagesQueryDto, "query"), (req, res) =>
   imageController.getImages(req, res)
 );
-router.get("/images/:id", (req: Request, res: Response) =>
-  imageController.getImageById(req, res)
+
+router.get(
+  "/images/:id",
+  validateDto(GetImageParamsDto, "params"),
+  (req, res) => imageController.getImageById(req, res)
 );
 
 export default router;

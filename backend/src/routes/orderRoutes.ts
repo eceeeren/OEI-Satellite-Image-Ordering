@@ -1,5 +1,8 @@
-import { Router, Request, Response } from "express";
+// src/routes/orderRoutes.ts
+import { Router } from "express";
 import { OrderController } from "../controllers/orderController";
+import { validateDto } from "../middleware/validation";
+import { CreateOrderDto, GetOrdersQueryDto } from "../dtos/order";
 
 /**
  * Order Router Module
@@ -12,10 +15,11 @@ import { OrderController } from "../controllers/orderController";
 const router = Router();
 const orderController = new OrderController();
 
-router.get("/orders", (req: Request, res: Response) =>
+router.get("/orders", validateDto(GetOrdersQueryDto, "query"), (req, res) =>
   orderController.getOrders(req, res)
 );
-router.post("/orders", (req: Request, res: Response) =>
+
+router.post("/orders", validateDto(CreateOrderDto, "body"), (req, res) =>
   orderController.createOrder(req, res)
 );
 

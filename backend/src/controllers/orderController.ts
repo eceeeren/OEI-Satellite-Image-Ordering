@@ -1,132 +1,99 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
-import { pool } from "../index";
-
-/**
- * Order Router Module
- *
- * For a complete implementation guide, see:
- * 'How to Build a REST API with Node.js and TypeScript'
- * https://medium.com/@holasoymalva/how-to-build-a-rest-api-with-node-js-and-typescript-3491ddd19f95
- *
- * Development notes:
- * - Database queries developed with assistance from Claude (Anthropic)
- */
+import { AppDataSource } from "../data-source";
+import { Order } from "../models/Order";
+import { SatelliteImage } from "../models/SatelliteImage";
+import { Between, MoreThanOrEqual, LessThanOrEqual } from "typeorm";
+import { CreateOrderDto, GetOrdersQueryDto } from "../dtos/order";
+import { validate } from "class-validator";
+import { plainToClass } from "class-transformer";
 
 export class OrderController {
+  private orderRepository = AppDataSource.getRepository(Order);
+  private imageRepository = AppDataSource.getRepository(SatelliteImage);
+
   async getOrders(req: Request, res: Response) {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 5;
-    const { minPrice, maxPrice, startDate, endDate } = req.query;
-    const offset = (page - 1) * limit;
-
-    // Input validation
-    if (page < 1 || limit < 1) {
-      res
-        .status(400)
-        .json({ error: "Page and limit must be positive numbers" });
-    }
-
-    let query = `
-      SELECT id as "orderId",
-        image_id as "imageId",
-        price,
-        created_at as "createdAt"
-      FROM orders
-      WHERE 1=1`;
-
-    const params = [];
-    let paramNum = 1;
-
-    // Filter the prices (in decimal format)
-    if (minPrice) {
-      query += ` AND CAST(price AS DECIMAL) >= $${paramNum++}`;
-      params.push(minPrice);
-    }
-
-    if (maxPrice) {
-      query += ` AND CAST(price AS DECIMAL) <= $${paramNum++}`;
-      params.push(maxPrice);
-    }
-
-    if (startDate) {
-      query += ` AND created_at >= $${paramNum++}::timestamptz`;
-      params.push(startDate);
-    }
-
-    if (endDate) {
-      query += ` AND created_at <= $${paramNum++}::timestamptz`;
-      params.push(endDate);
-    }
-
-    // Total count
-    const countResult = await pool.query(
-      `SELECT COUNT(*) FROM orders WHERE 1=1${
-        query.split("WHERE 1=1")[1].split("LIMIT")[0]
-      }`,
-      params
-    );
-
-    const totalCount = parseInt(countResult.rows[0].count);
-
-    // Paginated orders
-    query += ` ORDER BY created_at DESC LIMIT $${paramNum} OFFSET $${
-      paramNum + 1
-    }`;
-    params.push(limit, offset);
-
     try {
-      const result = await pool.query(query, params);
-      res.json({
-        orders: result.rows,
-        total: totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
+      // Validate query parameters
+      const queryDto = plainToClass(GetOrdersQueryDto, req.query);
+      const errors = await validate(queryDto);
+      if (errors.length > 0) {
+        return res.status(400).json({ errors });
+      }
+
+      const { page, limit, minPrice, maxPrice, startDate, endDate } = queryDto;
+      const offset = (page - 1) * limit;
+
+      const whereClause: any = {};
+
+      if (minPrice && maxPrice) {
+        whereClause.price = Between(minPrice, maxPrice);
+      } else if (minPrice) {
+        whereClause.price = MoreThanOrEqual(minPrice);
+      } else if (maxPrice) {
+        whereClause.price = LessThanOrEqual(maxPrice);
+      }
+
+      if (startDate && endDate) {
+        whereClause.created_at = Between(
+          new Date(startDate),
+          new Date(endDate)
+        );
+      }
+
+      const [orders, total] = await this.orderRepository.findAndCount({
+        where: whereClause,
+        skip: offset,
+        take: limit,
+        order: { created_at: "DESC" },
+      });
+
+      return res.json({
+        data: orders,
+        metadata: {
+          total,
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          limit,
+        },
       });
     } catch (error) {
       console.error("Error fetching orders:", error);
-      res.status(500).json({ message: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 
   async createOrder(req: Request, res: Response) {
-    const { imageId, price } = req.body;
-
-    // Input validation
-    if (!imageId || !price) {
-      res.status(400).json({ error: "ImageId and price are required" });
-    }
-
-    // Convert price to number and validate
-    const numericPrice = Number(price);
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      res.status(400).json({ error: "Price must be a positive number" });
-    }
-
-    const orderId = randomUUID();
-
     try {
-      // Verify that the image exists first
-      const imageCheck = await pool.query(
-        "SELECT catalog_id FROM satellite_images WHERE catalog_id = $1",
-        [imageId]
-      );
+      const orderDto = plainToClass(CreateOrderDto, req.body);
+      const errors = await validate(orderDto);
 
-      if (imageCheck.rows.length === 0) {
-        res.status(404).json({ message: "Image not found" });
+      if (errors.length > 0) {
+        return res.status(400).json({ errors });
       }
 
-      const result = await pool.query(
-        `INSERT INTO orders (id, image_id, price, created_at)
-         VALUES ($1, $2, $3, NOW())
-         RETURNING id as "orderId", image_id as "imageId", price, created_at as "createdAt"`,
-        [orderId, imageId, numericPrice]
-      );
+      const { imageId, price } = orderDto;
 
-      res.status(201).json(result.rows[0]);
+      // Check if image exists
+      const image = await this.imageRepository.findOneBy({
+        catalog_id: imageId,
+      });
+      if (!image) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+
+      const order = this.orderRepository.create({
+        id: randomUUID(),
+        image_id: imageId,
+        price: price.toString(),
+        created_at: new Date(),
+      });
+
+      const savedOrder = await this.orderRepository.save(order);
+      return res.status(201).json({ data: savedOrder });
     } catch (error) {
       console.error("Error creating order:", error);
-      res.status(500).json({ message: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 }

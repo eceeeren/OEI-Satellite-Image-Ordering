@@ -1,7 +1,8 @@
+import "reflect-metadata";
 import "dotenv/config";
 import cors from "cors";
 import express, { Express } from "express";
-import { createPool } from "./config/database";
+import { AppDataSource } from "./data-source";
 import imageRoutes from "./routes/imageRoutes";
 import orderRoutes from "./routes/orderRoutes";
 
@@ -16,36 +17,33 @@ import orderRoutes from "./routes/orderRoutes";
  * - Code structure and formatting assisted by Claude (Anthropic)
  */
 
-export const pool = createPool();
 const app: Express = express();
 const PORT: number = parseInt(process.env.PORT || "3000", 10);
 
-const testDatabaseConnection = async () => {
+const initializeDatabase = async () => {
   try {
-    const client = await pool.connect();
-    try {
-      await client.query("SELECT NOW()");
-      console.log("Database connection successful");
-    } finally {
-      client.release();
-    }
+    await AppDataSource.initialize();
+    console.log("Database connection successful");
   } catch (err) {
     console.error("Error connecting to the database:", err);
-    process.exit(1);
+    throw err;
   }
 };
 
 const initializeApp = async () => {
   try {
-    await testDatabaseConnection();
+    await initializeDatabase();
 
+    // Middleware
     app.use(
       cors({
         origin: "https://oei-satellite-image-ordering-jmja.onrender.com",
         credentials: true,
       })
     );
+    app.use(express.json());
 
+    // Routes
     app.get("/", (_req, res) => {
       res.json({
         message: "Welcome to the Satellite Image Ordering API",
@@ -54,10 +52,10 @@ const initializeApp = async () => {
       });
     });
 
-    app.use(express.json());
     app.use("/api", imageRoutes);
     app.use("/api", orderRoutes);
 
+    // Start server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -66,5 +64,17 @@ const initializeApp = async () => {
     process.exit(1);
   }
 };
+
+// Application shutdown
+process.on("SIGINT", async () => {
+  try {
+    await AppDataSource.destroy();
+    console.log("Database connection closed.");
+    process.exit(0);
+  } catch (err) {
+    console.error("Error during shutdown:", err);
+    process.exit(1);
+  }
+});
 
 initializeApp();

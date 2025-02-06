@@ -1,110 +1,132 @@
 import { Request, Response } from "express";
-import { pool } from "../index";
-
-/**
- * Image Controller Module
- *
- * For a complete implementation guide, see:
- * 'How to Build a REST API with Node.js and TypeScript'
- * https://medium.com/@holasoymalva/how-to-build-a-rest-api-with-node-js-and-typescript-3491ddd19f95
- *
- * Development notes:
- * - Database queries developed with assistance from Claude (Anthropic)
- */
+import { AppDataSource } from "../data-source";
+import { SatelliteImage } from "../models/SatelliteImage";
+import { GetImagesQueryDto, GetImageParamsDto } from "../dtos/image";
+import { plainToClass } from "class-transformer";
+import { validate } from "class-validator";
+import { Between, Raw } from "typeorm";
 
 export class ImageController {
+  private imageRepository = AppDataSource.getRepository(SatelliteImage);
+
   async getImages(req: Request, res: Response) {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 5;
-    const { startDate, endDate, area } = req.query;
-    const offset = (page - 1) * limit;
-
-    // Input validation
-    if (page < 1 || limit < 1) {
-      res
-        .status(400)
-        .json({ error: "Page and limit must be positive numbers" });
-    }
-
-    let query = `
-      SELECT
-        catalog_id as "catalogId",
-        ST_AsGeoJSON(coverage_area)::json as geometry,
-        created_at as "createdAt"
-      FROM satellite_images
-      WHERE 1=1`;
-
-    const params = [];
-    let paramNum = 1;
-
-    // Filter the dates (Format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
-    if (startDate) {
-      query += ` AND created_at >= $${paramNum++}::timestamptz`;
-      params.push(startDate);
-    }
-
-    if (endDate) {
-      query += ` AND created_at <= $${paramNum++}::timestamptz`;
-      params.push(endDate);
-    }
-
-    // Filter images within the boundaries of a specific area of interest
-    if (area) {
-      try {
-        const geojson = JSON.parse(area as string);
-        query += ` AND ST_Intersects(coverage_area, ST_SetSRID(ST_GeomFromGeoJSON($${paramNum++}), 4326))`;
-        params.push(JSON.stringify(geojson));
-      } catch (error) {
-        res.status(400).json({ error: "Invalid GeoJSON format" });
-      }
-    }
-
-    const countResult = await pool.query(
-      `SELECT COUNT(*) FROM satellite_images WHERE 1=1${
-        query.split("WHERE 1=1")[1].split("ORDER BY")[0]
-      }`,
-      params
-    );
-
-    const totalCount = parseInt(countResult.rows[0].count);
-    query += ` ORDER BY catalog_id LIMIT $${paramNum} OFFSET $${paramNum + 1}`;
-    params.push(limit, offset);
-
     try {
-      const result = await pool.query(query, params);
-      res.json({
-        images: result.rows,
-        total: totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
+      // Validate query parameters
+      const queryDto = plainToClass(GetImagesQueryDto, req.query);
+      const errors = await validate(queryDto);
+
+      if (errors.length > 0) {
+        return res.status(400).json({
+          error: "Validation failed",
+          details: errors,
+        });
+      }
+
+      const { page, limit, startDate, endDate, area } = queryDto;
+      const offset = (page - 1) * limit;
+
+      const whereClause: any = {};
+
+      // Add date filters
+      if (startDate || endDate) {
+        whereClause.created_at = Between(
+          startDate ? new Date(startDate) : new Date(0),
+          endDate ? new Date(endDate) : new Date()
+        );
+      }
+
+      // Add area filter if provided
+      if (area) {
+        try {
+          const geojson = JSON.parse(area);
+          whereClause.coverage_area = Raw(
+            (alias) =>
+              `ST_Intersects(${alias}, ST_SetSRID(ST_GeomFromGeoJSON(:geometry), 4326))`,
+            { geometry: JSON.stringify(geojson) }
+          );
+        } catch (error) {
+          return res.status(400).json({ error: "Invalid GeoJSON format" });
+        }
+      }
+
+      // Get images with count
+      const [images, total] = await this.imageRepository.findAndCount({
+        select: {
+          catalog_id: true,
+          coverage_area: true,
+          created_at: true,
+        },
+        where: whereClause,
+        skip: offset,
+        take: limit,
+        order: {
+          catalog_id: "ASC",
+        },
+      });
+
+      // Transform the response
+      const transformedImages = images.map((image) => ({
+        catalogId: image.catalog_id,
+        geometry: image.coverage_area,
+        createdAt: image.created_at,
+      }));
+
+      return res.json({
+        data: transformedImages,
+        metadata: {
+          total,
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          limit,
+        },
       });
     } catch (error) {
       console.error("Error fetching images:", error);
-      res.status(500).json({ message: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 
   async getImageById(req: Request, res: Response) {
-    const id = req.params.id;
     try {
-      const result = await pool.query(
-        `
-        SELECT
-          catalog_id as "catalogId",
-          ST_AsGeoJSON(coverage_area)::json as geometry
-        FROM satellite_images
-        WHERE catalog_id = $1
-        `,
-        [id]
-      );
+      // Validate parameters
+      const paramsDto = plainToClass(GetImageParamsDto, req.params);
+      const errors = await validate(paramsDto);
 
-      if (result.rows.length === 0) {
-        res.status(404).json({ message: "Image not found" });
+      if (errors.length > 0) {
+        return res.status(400).json({
+          error: "Validation failed",
+          details: errors,
+        });
       }
-      res.json(result.rows[0]);
+
+      const { id } = paramsDto;
+
+      const image = await this.imageRepository.findOne({
+        select: {
+          catalog_id: true,
+          coverage_area: true,
+        },
+        where: {
+          catalog_id: id,
+        },
+      });
+
+      if (!image) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+
+      // Transform the response
+      const transformedImage = {
+        catalogId: image.catalog_id,
+        geometry: image.coverage_area,
+      };
+
+      return res.json({
+        data: transformedImage,
+      });
     } catch (error) {
       console.error("Error fetching image:", error);
-      res.status(500).json({ message: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 }
