@@ -46,6 +46,14 @@ const initializeApp = async () => {
       })
     );
 
+    app.get("/", (_req, res) => {
+      res.json({
+        message: "Welcome to the Satellite Image Ordering API",
+        version: "1.0.0",
+        status: "running",
+      });
+    });
+
     app.use(express.json());
     app.use("/api", imageRoutes);
     app.use("/api", orderRoutes);
